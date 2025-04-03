@@ -10,8 +10,12 @@
 //! RUST_LOG=info cargo run --release -- --prove
 //! ```
 
+use hex::FromHex;
 use clap::Parser;
+use sha3::{Digest, Sha3_256};
 use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
+
+use chacha_lib::chacha;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const CHACHA_ELF: &[u8] = include_elf!("chacha-program");
@@ -43,28 +47,61 @@ fn main() {
         std::process::exit(1);
     }
 
-    // Setup the prover client.
-    let client = ProverClient::from_env();
-
-    // Setup the inputs.
     let mut stdin = SP1Stdin::new();
-    stdin.write(&args.n);
+    // Setup the inputs:
+    // - key = 32 bytes
+    // - nonce = 12 bytes (MUST BE UNIQUE - NO REUSE!)
+    // - input_plaintext = bytes to encrypt
 
-    println!("n: {}", args.n);
+    let key = <[u8; 32]>::from_hex(std::env::var("ENCRYPTION_KEY")
+        .expect("Missing ENCRYPTION_KEY env var"))
+        .expect("Key must be 32 bytes");
+    stdin.write(&key);
 
+    let nonce: [u8; 12] = chacha_lib::random_nonce();
+    stdin.write(&nonce);
+
+    // TODO: replace example bytes with service interface
+    let input_plaintext: &[u8] = chacha_lib::INPUT_BYTES;
+    stdin.write(&input_plaintext);
+
+    let client = ProverClient::from_env();
     if args.execute {
         // Execute the program
         let (output, report) = client.execute(CHACHA_ELF, &stdin).run().unwrap();
         println!("Program executed successfully.");
 
         // Read the output.
-        let decoded = 0; //TODO
+        // - sha3 hash = 32 bytes
+        // - ciphertext = encrypted bytes
+        let output = output.to_vec();
+        let (output_hash_plaintext, output_ciphertext) = output.split_at(32);
 
-        // let (expected_a, expected_b) = chacha_lib::chacha(n);
-        // assert_eq!(a, expected_a);
-        // assert_eq!(b, expected_b);
-        // println!("Values are correct!");
+        // Check against the input
+        let input_plaintext_digest = Sha3_256::digest(input_plaintext);
+        println!(
+            "Input -> plaintext hash: 0x{}",
+            chacha_lib::bytes_to_hex(&input_plaintext_digest)
+        );
+        println!(
+            "Input -> plaintext hash: 0x{}",
+            chacha_lib::bytes_to_hex(output_hash_plaintext)
+        );
 
+        let ciphertext_digest = Sha3_256::digest(output_ciphertext);
+        println!(
+            "zkVM -> ciphertext hash: 0x{}",
+            chacha_lib::bytes_to_hex(&ciphertext_digest)
+        );
+
+        // NOTE: stream cipher is decrypted by running the chacha encryption again.
+        // (plaintext XOR keystream XOR keystream = plaintext; QED)
+
+        let output_plaintext = &mut output_ciphertext.to_owned();
+        chacha(&key, &nonce, output_plaintext);
+        assert_eq!(output_plaintext, input_plaintext);
+        println!("Decryption of zkVM ciphertext matches input!");
+        //
         // Record the number of cycles executed.
         println!("Number of cycles: {}", report.total_instruction_count());
     } else {
@@ -72,8 +109,12 @@ fn main() {
         let (pk, vk) = client.setup(CHACHA_ELF);
 
         // Generate the proof
+        //
+        // NOTE:
+        // Using the [groth16 proof type](https://docs.succinct.xyz/docs/sp1/generating-proofs/proof-types#groth16-recommended) to trade increased proving costs & time for minimal EVM gas costs.
         let proof = client
             .prove(&pk, &stdin)
+            .groth16()
             .run()
             .expect("failed to generate proof");
 

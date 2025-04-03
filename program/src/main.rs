@@ -1,15 +1,38 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
+use sha3::{Digest, Sha3_256};
+
 use chacha_lib::chacha;
 
 pub fn main() {
-    let n = sp1_zkvm::io::read::<u32>();
+    let key = sp1_zkvm::io::read_vec(); // 32 bytes
+    let nonce = sp1_zkvm::io::read_vec(); // 12 bytes
+                                          // The plaintext to be encrypted _in place_
+    let mut buffer = sp1_zkvm::io::read_vec(); // 12 bytes
 
-    // let (a, b) = chacha(n);
+    // Commit to buffer (plaintext) hash
+    //
+    // ## Note
+    // The EVM has KECCAK256 opcode (Solidity `keccak256()`)
+    // KECCAK256 = 30 gas base & per 32 bytes word = 6 gas
+    // So SHA3 is most performat to choose for EVM.
+    let mut plaintext_hasher = Sha3_256::new();
+    plaintext_hasher.update(buffer.as_slice());
+    let plaintext_hash = plaintext_hasher.finalize();
+    // Hash plaintext & commit
+    sp1_zkvm::io::commit_slice(&plaintext_hash); // 32 bytes
 
-    // Encode the public values of the program.
-    let bytes = [0;10];
+    // FIXME // TODO:
+    // Hash key and/or nonce & commit?
 
-    sp1_zkvm::io::commit_slice(&bytes);
+    // Encrypt and commit
+    // Incorrect sized buffers passed in are unacceptable, and thus panic.
+    chacha(
+        &key.try_into().expect("key=32B"),
+        &nonce.try_into().expect("nonce=12B"),
+        &mut buffer,
+    );
+
+    sp1_zkvm::io::commit_slice(&buffer);
 }

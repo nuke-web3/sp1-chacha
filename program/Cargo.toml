@@ -4,5 +4,7 @@ name = "chacha-program"
 edition = "2021"
 
 [dependencies]
-sp1-zkvm = "4.0.0"
-chacha-lib = { path = "../lib" }
+sha3.workspace = true
+sp1-zkvm.workspace = true
+
+chacha-lib.workspace = true
