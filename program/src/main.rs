@@ -17,9 +17,7 @@ pub fn main() {
     // The EVM has KECCAK256 opcode (Solidity `keccak256()`)
     // KECCAK256 = 30 gas base & per 32 bytes word = 6 gas
     // So SHA3 is most performat to choose for EVM.
-    let mut plaintext_hasher = Sha3_256::new();
-    plaintext_hasher.update(buffer.as_slice());
-    let plaintext_hash = plaintext_hasher.finalize();
+    let plaintext_hash = Sha3_256::digest(buffer.as_slice());
     // Hash plaintext & commit
     sp1_zkvm::io::commit_slice(&plaintext_hash); // 32 bytes
 

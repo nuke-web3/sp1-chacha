@@ -10,8 +10,8 @@
 //! RUST_LOG=info cargo run --release -- --prove
 //! ```
 
-use hex::FromHex;
 use clap::Parser;
+use hex::FromHex;
 use sha3::{Digest, Sha3_256};
 use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
 
@@ -53,17 +53,18 @@ fn main() {
     // - nonce = 12 bytes (MUST BE UNIQUE - NO REUSE!)
     // - input_plaintext = bytes to encrypt
 
-    let key = <[u8; 32]>::from_hex(std::env::var("ENCRYPTION_KEY")
-        .expect("Missing ENCRYPTION_KEY env var"))
-        .expect("Key must be 32 bytes");
-    stdin.write(&key);
+    let key = <[u8; 32]>::from_hex(
+        std::env::var("ENCRYPTION_KEY").expect("Missing ENCRYPTION_KEY env var"),
+    )
+    .expect("Key must be 32 bytes");
+    stdin.write_slice(&key);
 
     let nonce: [u8; 12] = chacha_lib::random_nonce();
-    stdin.write(&nonce);
+    stdin.write_slice(&nonce);
 
     // TODO: replace example bytes with service interface
     let input_plaintext: &[u8] = chacha_lib::INPUT_BYTES;
-    stdin.write(&input_plaintext);
+    stdin.write_slice(input_plaintext);
 
     let client = ProverClient::from_env();
     if args.execute {
@@ -84,7 +85,7 @@ fn main() {
             chacha_lib::bytes_to_hex(&input_plaintext_digest)
         );
         println!(
-            "Input -> plaintext hash: 0x{}",
+            "zkVM -> plaintext hash: 0x{}",
             chacha_lib::bytes_to_hex(output_hash_plaintext)
         );
 
@@ -96,12 +97,12 @@ fn main() {
 
         // NOTE: stream cipher is decrypted by running the chacha encryption again.
         // (plaintext XOR keystream XOR keystream = plaintext; QED)
+        let mut output_plaintext = output_ciphertext.to_owned();
+        chacha(&key, &nonce, &mut output_plaintext);
 
-        let output_plaintext = &mut output_ciphertext.to_owned();
-        chacha(&key, &nonce, output_plaintext);
         assert_eq!(output_plaintext, input_plaintext);
         println!("Decryption of zkVM ciphertext matches input!");
-        //
+
         // Record the number of cycles executed.
         println!("Number of cycles: {}", report.total_instruction_count());
     } else {
@@ -114,7 +115,7 @@ fn main() {
         // Using the [groth16 proof type](https://docs.succinct.xyz/docs/sp1/generating-proofs/proof-types#groth16-recommended) to trade increased proving costs & time for minimal EVM gas costs.
         let proof = client
             .prove(&pk, &stdin)
-            .groth16()
+            // .groth16()
             .run()
             .expect("failed to generate proof");
 
