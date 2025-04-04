@@ -1,7 +1,7 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use sha3::{Digest, Sha3_256};
+use sha2::{Digest, Sha256};
 
 use chacha_lib::chacha;
 
@@ -17,7 +17,10 @@ pub fn main() {
     // The EVM has KECCAK256 opcode (Solidity `keccak256()`)
     // KECCAK256 = 30 gas base & per 32 bytes word = 6 gas
     // So SHA3 is most performat to choose for EVM.
-    let plaintext_hash = Sha3_256::digest(buffer.as_slice());
+    //
+    // BUT the cycle count is significantly higher for SHA3 (even accelerated)
+    // so we choose to use SHA2, for slightly higher on chain verification gas costs.
+    let plaintext_hash = Sha256::digest(buffer.as_slice());
     // Hash plaintext & commit
     sp1_zkvm::io::commit_slice(&plaintext_hash); // 32 bytes
 

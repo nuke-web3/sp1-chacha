@@ -4,7 +4,7 @@ name = "chacha-program"
 edition = "2021"
 
 [dependencies]
-sha3.workspace = true
+sha2.workspace = true
 sp1-zkvm.workspace = true
 
 chacha-lib.workspace = true

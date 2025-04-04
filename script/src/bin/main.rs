@@ -12,7 +12,7 @@
 
 use clap::Parser;
 use hex::FromHex;
-use sha3::{Digest, Sha3_256};
+use sha2::{Digest, Sha256};
 use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
 
 use chacha_lib::chacha;
@@ -73,13 +73,13 @@ fn main() {
         println!("Program executed successfully.");
 
         // Read the output.
-        // - sha3 hash = 32 bytes
+        // - sha2 hash = 32 bytes
         // - ciphertext = encrypted bytes
         let output = output.to_vec();
         let (output_hash_plaintext, output_ciphertext) = output.split_at(32);
 
         // Check against the input
-        let input_plaintext_digest = Sha3_256::digest(input_plaintext);
+        let input_plaintext_digest = Sha256::digest(input_plaintext);
         println!(
             "Input -> plaintext hash: 0x{}",
             chacha_lib::bytes_to_hex(&input_plaintext_digest)
@@ -89,7 +89,7 @@ fn main() {
             chacha_lib::bytes_to_hex(output_hash_plaintext)
         );
 
-        let ciphertext_digest = Sha3_256::digest(output_ciphertext);
+        let ciphertext_digest = Sha256::digest(output_ciphertext);
         println!(
             "zkVM -> ciphertext hash: 0x{}",
             chacha_lib::bytes_to_hex(&ciphertext_digest)
