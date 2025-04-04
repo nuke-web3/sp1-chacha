@@ -19,7 +19,7 @@ serde = { version = "1.0.200", default-features = false, features = ["derive"] }
 clap = { version = "4.0", features = ["derive", "env"] }
 tracing = "0.1.40"
 hex.workspace = true
-sha3.workspace = true
+sha2.workspace = true
 dotenv = "0.15.0"
 
 chacha-lib = { workspace = true, features = ["std"] }
