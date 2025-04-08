@@ -115,7 +115,7 @@ fn main() {
         // Using the [groth16 proof type](https://docs.succinct.xyz/docs/sp1/generating-proofs/proof-types#groth16-recommended) to trade increased proving costs & time for minimal EVM gas costs.
         let proof = client
             .prove(&pk, &stdin)
-            // .groth16()
+            .groth16()
             .run()
             .expect("failed to generate proof");
 
