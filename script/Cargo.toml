@@ -1,8 +1,8 @@
 [package]
-version = "0.1.0"
 name = "chacha-script"
-edition = "2021"
 default-run = "chacha"
+version.workspace = true
+edition.workspace = true
 
 [[bin]]
 name = "chacha"
